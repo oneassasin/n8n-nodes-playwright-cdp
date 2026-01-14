@@ -1,6 +1,6 @@
 import type { Page, BrowserContext, Route, Request } from 'playwright-core';
 import type { IExecuteFunctions, IBinaryData } from 'n8n-workflow';
-import type { PlaywrightHelpers, ScreenshotOptions, PdfOptions, DownloadOptions, UploadOptions, UploadFileData, SessionSnapshot } from './types';
+import type { PlaywrightHelpers, ScreenshotOptions, PdfOptions, DownloadOptions, UploadOptions, UploadFileData } from './types';
 
 /**
  * Creates helper functions for user code execution
@@ -257,43 +257,32 @@ export function createHelpers(
 		},
 
 		/**
-		 * Get accessibility snapshot of the page as a string
-		 * Compact representation of page structure (headings, links, buttons, text)
+		 * Get full page snapshot (like Playwright MCP)
+		 * Includes: URL, title, and accessibility tree
 		 */
 		async snapshot(page: Page): Promise<string> {
-			const snapshot = await page.accessibility.snapshot();
-			if (!snapshot) {
-				return '(empty page)';
-			}
-
 			const lines: string[] = [];
 
-			// Recursive function to format the tree
-			const formatNode = (node: typeof snapshot, indent: number = 0): void => {
-				const prefix = '  '.repeat(indent);
-				const role = node.role || 'unknown';
-				const name = node.name ? ` "${node.name}"` : '';
-				const value = node.value ? ` [${node.value}]` : '';
-				const checked = node.checked !== undefined ? ` (checked: ${node.checked})` : '';
-				const selected = node.selected !== undefined ? ` (selected: ${node.selected})` : '';
-				const disabled = node.disabled ? ' (disabled)' : '';
-				const focused = node.focused ? ' *focused*' : '';
+			// 1. Page metadata
+			lines.push('### Page');
+			lines.push(`- URL: ${page.url()}`);
+			try {
+				lines.push(`- Title: ${await page.title()}`);
+			} catch {
+				lines.push('- Title: (unavailable)');
+			}
+			lines.push('');
 
-				// Skip generic/none roles unless they have meaningful content
-				if (role !== 'none' && role !== 'generic' || node.name) {
-					lines.push(`${prefix}- ${role}${name}${value}${checked}${selected}${disabled}${focused}`);
-				}
+			// 2. Accessibility tree (ARIA snapshot)
+			lines.push('### Accessibility Tree');
+			try {
+				const aria = await page.locator('body').ariaSnapshot();
+				lines.push(aria || '(empty)');
+			} catch {
+				lines.push('(not available - page may not be loaded)');
+			}
 
-				// Process children
-				if (node.children) {
-					for (const child of node.children) {
-						formatNode(child, indent + 1);
-					}
-				}
-			};
-
-			formatNode(snapshot);
-			return lines.join('\n') || '(no accessible content)';
+			return lines.join('\n');
 		},
 	};
 }

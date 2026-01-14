@@ -83,8 +83,7 @@ export interface PlaywrightHelpers {
 		urlPattern: string | RegExp,
 		handler: (route: Route, request: Request) => Promise<void> | void,
 	): Promise<void>;
-	saveSession(page: Page): Promise<SessionSnapshot>;
-	restoreSession(page: Page, snapshot: SessionSnapshot): Promise<void>;
+	snapshot(page: Page): Promise<string>;
 }
 
 /**
@@ -139,27 +138,3 @@ export interface HumanEmulationConfig {
 	scrollDelay?: { min: number; max: number }; // ms between scroll steps, default: 50-100
 }
 
-/**
- * Cookie structure for session snapshot
- */
-export interface SessionCookie {
-	name: string;
-	value: string;
-	domain: string;
-	path: string;
-	expires?: number;
-	httpOnly?: boolean;
-	secure?: boolean;
-	sameSite?: 'Strict' | 'Lax' | 'None';
-}
-
-/**
- * Session snapshot for save/restore
- */
-export interface SessionSnapshot {
-	url: string;
-	cookies: SessionCookie[];
-	localStorage: Record<string, string>;
-	sessionStorage: Record<string, string>;
-	timestamp: number;
-}

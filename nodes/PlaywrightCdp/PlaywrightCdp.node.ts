@@ -22,8 +22,7 @@ const DEFAULT_CODE = `// Available variables:
 //   - binaryToFile(propertyName, itemIndex?) - Convert n8n binary to file
 //   - upload(page, files, options) - Upload files to page
 //   - interceptRequests(page, pattern, handler) - Intercept requests
-//   - saveSession(page) - Save cookies, localStorage, sessionStorage
-//   - restoreSession(page, snapshot) - Restore session from snapshot
+//   - snapshot(page) - Get accessibility snapshot as string
 // $input - Input data from previous node
 // $json - Shortcut for $input.item.json
 // $binary - Binary data from previous node
