@@ -12,6 +12,7 @@ import { createHumanizedPage } from './human';
 import type { ExecutionSandbox, HumanEmulationConfig } from './types';
 
 const DEFAULT_CODE = `// Available variables:
+// $('NodeName') - Get data from another node (like n8n Code node)
 // $playwright - Playwright instance
 // $browser - Connected browser instance
 // $context - Default browser context (human-like if enabled)
@@ -181,9 +182,30 @@ export class PlaywrightCdp implements INodeType {
 				// Create helpers
 				const helpers = createHelpers(this, context);
 
+				// Create $ function for accessing other nodes' data
+				const executeFunctions = this;
+				const $getNodeData = (nodeName: string) => {
+					try {
+						// Get data from specified node
+						const nodeData = executeFunctions.evaluateExpression(
+							`$('${nodeName}')`,
+							itemIndex,
+						) as {
+							item?: { json: Record<string, unknown> };
+							first?: () => { json: Record<string, unknown> };
+							last?: () => { json: Record<string, unknown> };
+							all?: () => Array<{ json: Record<string, unknown> }>;
+						};
+						return nodeData;
+					} catch {
+						throw new Error(`Cannot access node "${nodeName}". Make sure the node exists and has been executed.`);
+					}
+				};
+
 				// Build sandbox with all available variables
 				const allItems = items;
-				const sandbox: ExecutionSandbox & { $humanized: boolean } = {
+				const sandbox: ExecutionSandbox & { $humanized: boolean; $: typeof $getNodeData } = {
+					$: $getNodeData,
 					$playwright: playwright,
 					$browser: browser,
 					$context: context,
