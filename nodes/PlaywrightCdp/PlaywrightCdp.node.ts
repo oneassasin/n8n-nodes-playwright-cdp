@@ -74,14 +74,16 @@ export class PlaywrightCdp implements INodeType {
 				default: DEFAULT_CODE,
 				required: true,
 				noDataExpression: true,
-				description: 'Code to execute. Available: $playwright, $browser, $context, $helpers, $input, $JSON.',
+				description:
+					'Code to execute. Available: $playwright, $browser, $context, $helpers, $input, $JSON.',
 			},
 			{
 				displayName: 'Emulate Human Behavior',
 				name: 'emulateHuman',
 				type: 'boolean',
 				default: false,
-				description: 'Whether to simulate human-like mouse movements, typing delays, and scrolling. When enabled, page.click(), page.type(), and page.fill() will behave like a real human.',
+				description:
+					'Whether to simulate human-like mouse movements, typing delays, and scrolling. When enabled, page.click(), page.type(), and page.fill() will behave like a real human.',
 			},
 			{
 				displayName: 'Options',
@@ -112,6 +114,13 @@ export class PlaywrightCdp implements INodeType {
 							maxValue: 3600000,
 						},
 					},
+					{
+						displayName: 'Continue On Error',
+						name: 'continueOnError',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to return the error object instead of failing the workflow',
+					},
 				],
 			},
 		],
@@ -123,6 +132,7 @@ export class PlaywrightCdp implements INodeType {
 
 		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
 			let browser: playwright.Browser | null = null;
+			let continueOnError = false;
 
 			try {
 				// Get parameters
@@ -132,7 +142,9 @@ export class PlaywrightCdp implements INodeType {
 				const options = this.getNodeParameter('options', itemIndex, {}) as {
 					connectionTimeout?: number;
 					executionTimeout?: number;
+					continueOnError?: boolean;
 				};
+				continueOnError = options.continueOnError ?? false;
 				const connectionTimeout = options.connectionTimeout ?? 30000;
 				const executionTimeout = options.executionTimeout ?? 60000;
 
@@ -173,10 +185,11 @@ export class PlaywrightCdp implements INodeType {
 				// If human emulation is enabled, wrap context.newPage() to return humanized pages
 				if (emulateHuman) {
 					const originalNewPage = context.newPage.bind(context);
-					(context as unknown as { newPage: () => Promise<playwright.Page> }).newPage = async () => {
-						const page = await originalNewPage();
-						return createHumanizedPage(page, humanConfig);
-					};
+					(context as unknown as { newPage: () => Promise<playwright.Page> }).newPage =
+						async () => {
+							const page = await originalNewPage();
+							return createHumanizedPage(page, humanConfig);
+						};
 				}
 
 				// Create helpers
@@ -187,10 +200,7 @@ export class PlaywrightCdp implements INodeType {
 				const $getNodeData = (nodeName: string) => {
 					try {
 						// Get data from specified node
-						const nodeData = executeFunctions.evaluateExpression(
-							`$('${nodeName}')`,
-							itemIndex,
-						) as {
+						const nodeData = executeFunctions.evaluateExpression(`$('${nodeName}')`, itemIndex) as {
 							item?: { json: Record<string, unknown> };
 							first?: () => { json: Record<string, unknown> };
 							last?: () => { json: Record<string, unknown> };
@@ -198,7 +208,9 @@ export class PlaywrightCdp implements INodeType {
 						};
 						return nodeData;
 					} catch {
-						throw new Error(`Cannot access node "${nodeName}". Make sure the node exists and has been executed.`);
+						throw new Error(
+							`Cannot access node "${nodeName}". Make sure the node exists and has been executed.`,
+						);
 					}
 				};
 
@@ -246,7 +258,7 @@ export class PlaywrightCdp implements INodeType {
 					});
 				}
 			} catch (error) {
-				if (this.continueOnFail()) {
+				if (this.continueOnFail() || continueOnError) {
 					returnData.push({
 						json: {
 							error: error instanceof Error ? error.message : String(error),
